@@ -1,0 +1,138 @@
+FACILITIES = ["Badminton", "Basketball", "Futsal", "Table Tennis"]
+SLOTS = ["3-4 PM", "4-5 PM", "5-6 PM", "6-7 PM"]
+ADMIN_PASSWORD = "admin123"
+def read_lines(filename):
+    """Read a text file and return its lines as a list (empty list if it cannot be read)."""
+    lines = []
+    try:
+        file = open(filename, "r")
+        for line in file:
+            lines.append(line)
+        file.close()
+    except FileNotFoundError:
+        print("(" + filename + " not created yet)")
+    except PermissionError:
+        print("No permission to read", filename)
+    return lines
+def append_line(filename, text):
+    """Add one new line at the end of a file."""
+    file = None
+    try:
+        file = open(filename, "a")
+        file.write(text + "\n")
+    except PermissionError:
+        print("No permission to write", filename)
+    finally:
+        if file:
+            file.close()
+def user_login(roll):
+    """Return the student's name if the roll number is registered, else an empty string."""
+    for line in read_lines("users.txt"):
+        if line[0:8] == roll:
+            return line[8:len(line) - 1]
+    return ""
+def add_record(roll, facility, slot, date):
+    """Save a booking (facility and slot are list positions). Returns False if already booked."""
+    record = roll + str(facility) + str(slot) + date
+    for line in read_lines("bookings.txt"):
+        if line[8:20] == record[8:20]:
+            return False
+    append_line("bookings.txt", record)
+    return True
+def search_record(roll):
+    """Return all bookings that belong to a roll number."""
+    found = []
+    for line in read_lines("bookings.txt"):
+        if line[0:8] == roll:
+            found.append(line)
+    return found
+def generate_report():
+    """Return the number of bookings for each facility."""
+    lines = read_lines("bookings.txt")
+    report = "Total bookings: " + str(len(lines)) + "\n"
+    for i in range(len(FACILITIES)):
+        count = 0
+        for line in lines:
+            if line[8] == str(i):
+                count = count + 1
+        report = report + FACILITIES[i] + ": " + str(count) + "\n"
+    return report
+def pick(title, options):
+    """Show a numbered menu and return the chosen position. Asks again until the input is valid."""
+    print("\n===== " + title + " =====")
+    for i in range(len(options)):
+        print(str(i + 1) + ". " + options[i])
+    while True:
+        try:
+            n = int(input("Choose: "))
+            if 1 <= n <= len(options):
+                return n - 1
+            print("Pick a number from the list.")
+        except ValueError:
+            print("Please enter a number.")
+def get_date():
+    """Keep asking until the user types a valid date like 20-11-2026."""
+    while True:
+        date = input("Date (DD-MM-YYYY): ")
+        try:
+            if len(date) == 10 and 0 < int(date[0:2]) <= 31 and 0 < int(date[3:5]) <= 12:
+                return date
+        except ValueError:
+            pass
+        print("Invalid date, use the format 20-11-2026.")
+def show_bookings(bookings):
+    """Print a list of saved booking lines in a readable way."""
+    if len(bookings) == 0:
+        print("No bookings found.")
+    for line in bookings:
+        print("-", line[0:8], "|", FACILITIES[int(line[8])], "|", line[10:20], "|", SLOTS[int(line[9])])
+def admin_panel():
+    """Admin menu: view bookings, view students and see the report."""
+    while True:
+        choice = pick("ADMIN PANEL", ["View all bookings", "View students", "Report", "Back"])
+        if choice == 0:
+            show_bookings(read_lines("bookings.txt"))
+        elif choice == 1:
+            for line in read_lines("users.txt"):
+                print("-", line[0:8], line[8:len(line) - 1])
+        elif choice == 2:
+            print(generate_report())
+        else:
+            break
+def main():
+    """Main loop: keeps the portal running until the user types 0."""
+    print("===== SPORTS FACILITY BOOKING PORTAL =====")
+    while True:
+        roll = input("\nRoll number, e.g. 25L-1010 (admin for admin, 0 to exit): ").upper()
+        if roll == "0":
+            break
+        if roll == "ADMIN":
+            if input("Admin password: ") == ADMIN_PASSWORD:
+                admin_panel()
+            else:
+                print("Wrong password.")
+            continue
+        if len(roll) != 8:
+            print("Roll number must be 8 characters.")
+            continue
+        name = user_login(roll)
+        if name == "":
+            name = input("New student! Enter your name: ")
+            append_line("users.txt", roll + name)
+        print("Welcome,", name)
+        while True:
+            choice = pick("MENU", ["Book a slot", "My bookings", "Logout"])
+            if choice == 0:
+                f = pick("Facility", FACILITIES)
+                d = get_date()
+                s = pick("Time slot", SLOTS)
+                if add_record(roll, f, s, d):
+                    print("Booking confirmed!")
+                else:
+                    print("Sorry, that slot is already booked.")
+            elif choice == 1:
+                show_bookings(search_record(roll))
+            else:
+                break
+    print("Goodbye!")
+main()
